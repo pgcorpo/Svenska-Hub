@@ -72,9 +72,14 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold tracking-tight">Välkommen, {userName}!</h1>
           <p className="text-muted-foreground mt-1">Ready for some Swedish?</p>
         </div>
-        <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign Out">
-          <LogOut className="h-5 w-5 text-muted-foreground" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => router.push("/add")}>
+            Add Words
+          </Button>
+          <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign Out">
+            <LogOut className="h-5 w-5 text-muted-foreground" />
+          </Button>
+        </div>
       </header>
 
       <div className="space-y-8">
