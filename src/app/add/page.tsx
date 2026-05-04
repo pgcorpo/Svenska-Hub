@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Sparkles, Plus, Upload, Trash2, CheckCircle2 } from "lucide-react";
+import { Home, Sparkles, Plus, Upload, Trash2, CheckCircle2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -140,8 +140,9 @@ export default function AddWordsPage() {
           <Link 
             href="/" 
             className={`rounded-full ${buttonVariants({ variant: "ghost", size: "icon" })}`}
+            title="Go Home"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <Home className="h-5 w-5" />
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">Add Words</h1>
         </div>
