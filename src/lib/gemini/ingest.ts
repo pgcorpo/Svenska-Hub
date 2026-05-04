@@ -48,7 +48,7 @@ IMPORTANT: The OCR text may be messy or contain multiple words. Focus on extract
 
 export async function extractVocabulary(rawText: string): Promise<GeminiIngestResult> {
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
+    model: "gemini-3-flash-preview",
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: responseSchema,
