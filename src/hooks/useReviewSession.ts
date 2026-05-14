@@ -2,7 +2,7 @@
 
 import { useReducer, useCallback, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getNextStates, progressFromCard } from "@/lib/fsrs/scheduler";
+import { createNewCardProgress, getNextStates, progressFromCard } from "@/lib/fsrs/scheduler";
 import type {
   ReviewCard,
   ReviewSessionState,
@@ -154,6 +154,57 @@ export function useReviewSession() {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
+
+    // New accounts have no card_progress for words added before they existed; review reads only card_progress.
+    const { count: vocabCount, error: vocabCountErr } = await supabase
+      .from("vocabulary")
+      .select("*", { count: "exact", head: true });
+    const { count: progCount, error: progCountErr } = await supabase
+      .from("card_progress")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id);
+
+    if (
+      !vocabCountErr &&
+      !progCountErr &&
+      vocabCount != null &&
+      progCount != null &&
+      vocabCount > progCount
+    ) {
+      const { data: progRows, error: progErr } = await supabase
+        .from("card_progress")
+        .select("word_id")
+        .eq("user_id", user.id);
+      if (progErr) {
+        /* fall through to due fetch */
+      } else {
+        const have = new Set((progRows ?? []).map((r) => r.word_id));
+        const allVocabIds: string[] = [];
+        const pageSize = 1000;
+        for (let from = 0; ; from += pageSize) {
+          const { data: page, error: pageErr } = await supabase
+            .from("vocabulary")
+            .select("id")
+            .order("id", { ascending: true })
+            .range(from, from + pageSize - 1);
+          if (pageErr || !page?.length) break;
+          allVocabIds.push(...page.map((r) => r.id));
+          if (page.length < pageSize) break;
+        }
+        const missing = allVocabIds.filter((id) => !have.has(id));
+        const chunk = 100;
+        for (let i = 0; i < missing.length; i += chunk) {
+          const rows = missing
+            .slice(i, i + chunk)
+            .map((wordId) => createNewCardProgress(user.id, wordId));
+          const { error: insertErr } = await supabase.from("card_progress").insert(rows);
+          if (insertErr) {
+            console.error("card_progress backfill failed:", insertErr);
+            break;
+          }
+        }
+      }
+    }
 
     const now = new Date().toISOString();
 
