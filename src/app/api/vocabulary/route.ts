@@ -4,6 +4,55 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { createNewCardProgress } from "@/lib/fsrs/scheduler";
 import { extractVocabulary } from "@/lib/gemini/ingest";
 
+const LIST_LIMIT = 500;
+
+/** List vocabulary (newest first). Optional `q` filters Swedish/English (ilike). */
+export async function GET(request: Request) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const q = searchParams.get("q")?.trim();
+
+    let query = supabase
+      .from("vocabulary")
+      .select(
+        "id, swedish_word, english_meaning, gender, grammar_forms, example_sv, example_en, added_by, created_at"
+      )
+      .order("created_at", { ascending: false })
+      .limit(LIST_LIMIT);
+
+    if (q) {
+      const safe = q
+        .replace(/%/g, "\\%")
+        .replace(/_/g, "\\_")
+        .replace(/,/g, " ");
+      query = query.or(
+        `swedish_word.ilike.%${safe}%,english_meaning.ilike.%${safe}%`
+      );
+    }
+
+    const { data: words, error } = await query;
+
+    if (error) {
+      console.error("Vocabulary list error:", error);
+      return NextResponse.json({ error: "Failed to load words" }, { status: 500 });
+    }
+
+    return NextResponse.json({ words: words ?? [] });
+  } catch (e) {
+    console.error("Vocabulary GET error:", e);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
