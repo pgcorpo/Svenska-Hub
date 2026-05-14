@@ -40,6 +40,17 @@ function reviewReducer(
     case "REVEAL":
       return { ...state, isRevealed: true };
 
+    case "TOGGLE_REVEAL":
+      return { ...state, isRevealed: !state.isRevealed };
+
+    case "NAVIGATE": {
+      const newIndex = action.direction === "next"
+        ? Math.min(state.currentIndex + 1, state.queue.length - 1)
+        : Math.max(state.currentIndex - 1, 0);
+      if (newIndex === state.currentIndex) return state;
+      return { ...state, currentIndex: newIndex, isRevealed: false };
+    }
+
     case "GRADE": {
       const currentCard = state.queue[state.currentIndex];
       if (!currentCard) return state;
@@ -215,6 +226,14 @@ export function useReviewSession() {
     dispatch({ type: "REVEAL" });
   }, []);
 
+  const toggleReveal = useCallback(() => {
+    dispatch({ type: "TOGGLE_REVEAL" });
+  }, []);
+
+  const navigate = useCallback((direction: "next" | "prev") => {
+    dispatch({ type: "NAVIGATE", direction });
+  }, []);
+
   const grade = useCallback(
     (rating: 1 | 2 | 3 | 4) => {
       const currentCard = state.queue[state.currentIndex];
@@ -247,6 +266,8 @@ export function useReviewSession() {
     ...state,
     currentCard,
     reveal,
+    toggleReveal,
+    navigate,
     grade,
     undo,
     totalCards: state.queue.length,

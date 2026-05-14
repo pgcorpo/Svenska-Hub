@@ -100,6 +100,8 @@ export interface PendingMutation {
 export type ReviewAction =
   | { type: "SET_QUEUE"; queue: ReviewCard[] }
   | { type: "REVEAL" }
+  | { type: "TOGGLE_REVEAL" }
+  | { type: "NAVIGATE"; direction: "next" | "prev" }
   | { type: "GRADE"; rating: 1 | 2 | 3 | 4; newProgress: CardProgress }
   | { type: "UNDO" }
   | { type: "MUTATION_SYNCED"; progressId: string }

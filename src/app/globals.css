@@ -143,4 +143,44 @@
   .rotate-y-180 {
     transform: rotateY(180deg);
   }
+
+  /* Card exit animations (swipe grading) */
+  .card-exit-right {
+    transform: translateX(120%) rotate(15deg);
+    opacity: 0;
+    transition: transform 300ms ease-in, opacity 250ms ease-in;
+  }
+  .card-exit-left {
+    transform: translateX(-120%) rotate(-15deg);
+    opacity: 0;
+    transition: transform 300ms ease-in, opacity 250ms ease-in;
+  }
+
+  /* Card navigation animations (up/down browsing) */
+  .card-exit-up {
+    transform: translateY(-80%);
+    opacity: 0;
+    transition: transform 250ms ease-in, opacity 200ms ease-in;
+  }
+  .card-exit-down {
+    transform: translateY(80%);
+    opacity: 0;
+    transition: transform 250ms ease-in, opacity 200ms ease-in;
+  }
+}
+
+/* Card enter animation */
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.card-enter {
+  animation: cardEnter 300ms ease-out;
 }
