@@ -1,10 +1,11 @@
 -- ============================================================
 -- Svenska Hub — Initial Database Schema
--- Run this in your Supabase SQL Editor
+-- Run this in your Supabase SQL Editor or via Supabase migrations.
+-- Idempotent: safe to replay if CI/history was out of sync with the DB.
 -- ============================================================
 
 -- 1. Profiles table
-create table public.profiles (
+create table if not exists public.profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null,
   daily_new_limit int not null default 20,
@@ -14,16 +15,19 @@ create table public.profiles (
 
 alter table public.profiles enable row level security;
 
+drop policy if exists "Users can view all profiles" on public.profiles;
 create policy "Users can view all profiles"
   on public.profiles for select
   to authenticated
   using (true);
 
+drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can update own profile"
   on public.profiles for update
   to authenticated
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can insert own profile" on public.profiles;
 create policy "Users can insert own profile"
   on public.profiles for insert
   to authenticated
@@ -31,7 +35,7 @@ create policy "Users can insert own profile"
 
 
 -- 2. Vocabulary table (shared word pool)
-create table public.vocabulary (
+create table if not exists public.vocabulary (
   id uuid primary key default gen_random_uuid(),
   swedish_word text not null,
   english_meaning text not null,
@@ -45,11 +49,13 @@ create table public.vocabulary (
 
 alter table public.vocabulary enable row level security;
 
+drop policy if exists "Authenticated users can view all vocabulary" on public.vocabulary;
 create policy "Authenticated users can view all vocabulary"
   on public.vocabulary for select
   to authenticated
   using (true);
 
+drop policy if exists "Authenticated users can insert vocabulary" on public.vocabulary;
 create policy "Authenticated users can insert vocabulary"
   on public.vocabulary for insert
   to authenticated
@@ -60,7 +66,7 @@ create policy "Authenticated users can insert vocabulary"
 
 
 -- 3. Card Progress table (individual SRS state)
-create table public.card_progress (
+create table if not exists public.card_progress (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(user_id) on delete cascade,
   word_id uuid not null references public.vocabulary(id) on delete cascade,
@@ -79,21 +85,25 @@ create table public.card_progress (
 
 alter table public.card_progress enable row level security;
 
+drop policy if exists "Users can view own card progress" on public.card_progress;
 create policy "Users can view own card progress"
   on public.card_progress for select
   to authenticated
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can insert own card progress" on public.card_progress;
 create policy "Users can insert own card progress"
   on public.card_progress for insert
   to authenticated
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can update own card progress" on public.card_progress;
 create policy "Users can update own card progress"
   on public.card_progress for update
   to authenticated
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can delete own card progress" on public.card_progress;
 create policy "Users can delete own card progress"
   on public.card_progress for delete
   to authenticated
@@ -101,9 +111,9 @@ create policy "Users can delete own card progress"
 
 
 -- 4. Indexes for query performance
-create index idx_card_progress_user_due on public.card_progress (user_id, due_date);
-create index idx_card_progress_user_state on public.card_progress (user_id, state);
-create index idx_vocabulary_created on public.vocabulary (created_at desc);
+create index if not exists idx_card_progress_user_due on public.card_progress (user_id, due_date);
+create index if not exists idx_card_progress_user_state on public.card_progress (user_id, state);
+create index if not exists idx_vocabulary_created on public.vocabulary (created_at desc);
 
 
 -- 5. Function to auto-create profile on signup
@@ -116,6 +126,7 @@ begin
 end;
 $$ language plpgsql security definer;
 
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
