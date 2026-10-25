@@ -105,6 +105,18 @@ export function formatInterval(scheduledDays: number): string {
 }
 
 /**
+ * Format a ts-fsrs Card's next interval, using the exact due timestamp delta
+ * when scheduled_days is 0 (e.g. 1m or 5m learning/relearning steps).
+ */
+export function formatCardInterval(card: Card): string {
+  if (card.scheduled_days > 0) {
+    return formatInterval(card.scheduled_days);
+  }
+  const diffDays = Math.max(0, (card.due.getTime() - Date.now()) / 86_400_000);
+  return formatInterval(diffDays);
+}
+
+/**
  * Create a fresh "New" card progress entry for a user + word.
  */
 export function createNewCardProgress(
@@ -125,6 +137,25 @@ export function createNewCardProgress(
     state: card.state,
     last_review: null,
   };
+}
+
+/**
+ * Build initial card_progress entries for all paired users (plus optional current user)
+ * across one or more vocabulary word IDs.
+ */
+export function buildPairedCardProgressRows(
+  wordIds: string[],
+  currentUserId?: string
+): Omit<CardProgress, "id" | "created_at">[] {
+  const pairUserIds =
+    process.env.PAIR_USER_IDS?.split(",").map((id) => id.trim()) || [];
+  const targetUsers = Array.from(
+    new Set([...pairUserIds, ...(currentUserId ? [currentUserId] : [])])
+  ).filter(Boolean);
+
+  return wordIds.flatMap((wordId) =>
+    targetUsers.map((userId) => createNewCardProgress(userId, wordId))
+  );
 }
 
 export { Rating };

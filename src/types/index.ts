@@ -18,8 +18,8 @@ export interface VocabularyWord {
   id: string;
   swedish_word: string;
   english_meaning: string;
-  gender: "en" | "ett" | "n/a";
-  grammar_forms: GrammarForms;
+  gender: "en" | "ett" | "n/a" | null;
+  grammar_forms: GrammarForms | null;
   example_sv: string | null;
   example_en: string | null;
   added_by: string | null;
@@ -70,6 +70,7 @@ export interface GeminiIngestResult {
 
 export interface IngestRequest {
   raw_text: string;
+  model?: string;
 }
 
 // --- Review session state ---
@@ -87,9 +88,11 @@ export interface ReviewSessionState {
 export interface HistoryEntry {
   card: ReviewCard;
   previousProgress: CardProgress;
+  wasRequeued?: boolean;
 }
 
 export interface PendingMutation {
+  id: string;
   progressId: string;
   wordId: string;
   updates: Partial<CardProgress>;
@@ -102,7 +105,8 @@ export type ReviewAction =
   | { type: "REVEAL" }
   | { type: "TOGGLE_REVEAL" }
   | { type: "NAVIGATE"; direction: "next" | "prev" }
-  | { type: "GRADE"; rating: 1 | 2 | 3 | 4; newProgress: CardProgress }
+  | { type: "GRADE"; rating: 1 | 4; newProgress: CardProgress }
+  | { type: "UPDATE_WORD"; word: VocabularyWord }
   | { type: "UNDO" }
-  | { type: "MUTATION_SYNCED"; progressId: string }
+  | { type: "MUTATION_SYNCED"; mutationId: string }
   | { type: "SET_LOADING"; isLoading: boolean };

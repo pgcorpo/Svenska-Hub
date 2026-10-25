@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractVocabulary } from "@/lib/gemini/ingest";
 import { createServiceClient } from "@/lib/supabase/server";
-import { createNewCardProgress } from "@/lib/fsrs/scheduler";
+import { buildPairedCardProgressRows } from "@/lib/fsrs/scheduler";
 
 export async function POST(request: NextRequest) {
   // 1. Validate Bearer token
@@ -16,6 +16,8 @@ export async function POST(request: NextRequest) {
     // 2. Parse request body
     const body = await request.json();
     const rawText = body.raw_text;
+    const requestedModel = typeof body.model === "string" ? body.model : undefined;
+    const customApiKey = request.headers.get("x-gemini-api-key") || undefined;
 
     if (!rawText || typeof rawText !== "string") {
       return NextResponse.json(
@@ -25,7 +27,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Extract vocabulary with Gemini
-    const extracted = await extractVocabulary(rawText);
+    const extracted = await extractVocabulary(rawText, {
+      model: requestedModel,
+      apiKey: customApiKey,
+    });
 
     // 4. Insert into vocabulary table
     const supabase = createServiceClient();
@@ -51,23 +56,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Create card_progress for both paired users
-    const pairUserIds = process.env.PAIR_USER_IDS?.split(",").map((id) =>
-      id.trim()
-    );
-
-    if (pairUserIds && pairUserIds.length > 0) {
-      const progressEntries = pairUserIds.map((userId) =>
-        createNewCardProgress(userId, word.id)
-      );
-
+    // 5. Create card_progress for paired users
+    const progressEntries = buildPairedCardProgressRows([word.id]);
+    if (progressEntries.length > 0) {
       const { error: progressError } = await supabase
         .from("card_progress")
         .insert(progressEntries);
 
       if (progressError) {
         console.error("Failed to create card progress:", progressError);
-        // Non-fatal — the word is saved, progress can be created later
       }
     }
 

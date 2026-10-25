@@ -4,10 +4,15 @@ export const dynamic = "force-dynamic";
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Home, Sparkles, Plus, Upload, Trash2, CheckCircle2 } from "lucide-react";
+import { Home, Sparkles, Plus, Upload, Trash2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { AiSettingsBar } from "@/components/gemini/AiSettingsBar";
+import {
+  buildAiRequestHeaders,
+  getSelectedGeminiModel,
+} from "@/lib/gemini/client-config";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -16,6 +21,8 @@ type Tab = "quick" | "bulk";
 interface BulkRow {
   swedish_word: string;
   english_meaning: string;
+  example_sv?: string | null;
+  example_en?: string | null;
 }
 
 export default function AddWordsPage() {
@@ -44,11 +51,12 @@ export default function AddWordsPage() {
     try {
       const res = await fetch("/api/vocabulary", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: buildAiRequestHeaders(),
         body: JSON.stringify({
           swedish_word: swedish.trim(),
           english_meaning: english.trim(),
-          use_ai: useAi
+          use_ai: useAi,
+          model: getSelectedGeminiModel(),
         }),
       });
 
@@ -58,11 +66,20 @@ export default function AddWordsPage() {
       
       // Add to recent list
       setRecentWords((prev) => [
-        { swedish_word: data.word.swedish_word, english_meaning: data.word.english_meaning },
+        {
+          swedish_word: data.word.swedish_word,
+          english_meaning: data.word.english_meaning,
+          example_sv: data.word.example_sv,
+          example_en: data.word.example_en,
+        },
         ...prev
       ].slice(0, 5));
 
-      toast.success(`Added "${data.word.swedish_word}"`);
+      toast.success(
+        data.model_used
+          ? `Added "${data.word.swedish_word}" with AI (${data.model_used})`
+          : `Added "${data.word.swedish_word}"`
+      );
       
       // Reset form
       setSwedish("");
@@ -148,6 +165,9 @@ export default function AddWordsPage() {
           </Link>
           <h1 className="text-2xl font-semibold tracking-tight">Add Words</h1>
         </div>
+
+        {/* Dynamic Gemini Model & Key Settings */}
+        <AiSettingsBar />
 
         {/* Custom Tabs */}
         <div className="flex rounded-lg bg-card/50 p-1 backdrop-blur ring-1 ring-border/50">
@@ -240,9 +260,17 @@ export default function AddWordsPage() {
                 <h3 className="text-sm font-medium text-muted-foreground px-1">Recently Added</h3>
                 <div className="flex flex-col gap-2">
                   {recentWords.map((word, i) => (
-                    <div key={i} className="flex items-center justify-between rounded-lg border border-border/50 bg-card/30 px-4 py-3 text-sm animate-in fade-in slide-in-from-left-2">
-                      <span className="font-medium">{word.swedish_word}</span>
-                      <span className="text-muted-foreground">{word.english_meaning}</span>
+                    <div key={i} className="rounded-lg border border-border/50 bg-card/30 px-4 py-3 text-sm animate-in fade-in slide-in-from-left-2 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{word.swedish_word}</span>
+                        <span className="text-muted-foreground">{word.english_meaning}</span>
+                      </div>
+                      {word.example_sv && (
+                        <p className="text-xs italic text-foreground/80">
+                          &ldquo;{word.example_sv}&rdquo;
+                          {word.example_en ? ` — ${word.example_en}` : ""}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>

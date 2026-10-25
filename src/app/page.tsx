@@ -6,12 +6,12 @@ import { createClient } from "@/lib/supabase/client";
 import { useReviewSession } from "@/hooks/useReviewSession";
 import { useSwipe } from "@/hooks/useSwipe";
 import { ReviewCard } from "@/components/review/ReviewCard";
+import { RatingButtons } from "@/components/review/RatingButtons";
 import { Button } from "@/components/ui/button";
 import { Plus, LogOut, Undo2 } from "lucide-react";
 
 export default function HomePage() {
   const router = useRouter();
-  const [userName, setUserName] = useState("there");
   const [todayStats, setTodayStats] = useState<{ name: string; count: number }[]>([]);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -20,6 +20,7 @@ export default function HomePage() {
     isRevealed,
     toggleReveal,
     navigate,
+    updateWord,
     grade,
     undo,
     canUndo,
@@ -39,14 +40,6 @@ export default function HomePage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("display_name")
-        .eq("user_id", user.id)
-        .single();
-
-      setUserName(profile?.display_name || user.email?.split("@")[0] || "there");
 
       // Fetch today's review stats for all users
       const today = new Date();
@@ -72,27 +65,34 @@ export default function HomePage() {
     init();
   }, []);
 
-  // ── Grade with animation ──────────────────────────────────
+  // ── Grade with animation (Binary: 1 = Forgot, 4 = Got it) ──
   const gradeAndAnimate = useCallback(
     (direction: "left" | "right") => {
-      if (!currentCard || !isRevealed) return;
-      const rating = direction === "right" ? 3 : 1;
+      if (!currentCard || !isRevealed || exitClass) return;
+      const rating: 1 | 4 = direction === "right" ? 4 : 1;
       setExitClass(direction === "right" ? "card-exit-right" : "card-exit-left");
 
       // Wait for CSS transition to finish, then grade
       setTimeout(() => {
-        grade(rating as 1 | 3);
+        grade(rating);
         setExitClass("");
         setCardKey((k) => k + 1);
       }, 300);
     },
-    [currentCard, isRevealed, grade]
+    [currentCard, isRevealed, exitClass, grade]
+  );
+
+  const handleBinaryButtonGrade = useCallback(
+    (rating: 1 | 4) => {
+      gradeAndAnimate(rating === 4 ? "right" : "left");
+    },
+    [gradeAndAnimate]
   );
 
   // ── Navigate with animation ───────────────────────────────
   const navigateCards = useCallback(
     (direction: "next" | "prev") => {
-      if (!currentCard) return;
+      if (!currentCard || exitClass) return;
       setExitClass(direction === "next" ? "card-exit-up" : "card-exit-down");
 
       setTimeout(() => {
@@ -101,12 +101,13 @@ export default function HomePage() {
         setCardKey((k) => k + 1);
       }, 250);
     },
-    [currentCard, navigate]
+    [currentCard, exitClass, navigate]
   );
 
   // ── Keyboard handler ──────────────────────────────────────
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      if (exitClass) return;
       switch (e.code) {
         case "Space":
           e.preventDefault();
@@ -132,7 +133,7 @@ export default function HomePage() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isRevealed, toggleReveal, gradeAndAnimate, navigateCards, undo]);
+  }, [exitClass, isRevealed, toggleReveal, gradeAndAnimate, navigateCards, undo]);
 
   // ── Swipe handler ─────────────────────────────────────────
   const swipeHandlers = useSwipe({
@@ -245,7 +246,11 @@ export default function HomePage() {
           className={`w-full max-w-lg transition-all duration-300 ${exitClass} ${!exitClass ? "card-enter" : ""}`}
           onClick={() => toggleReveal()}
         >
-          <ReviewCard card={currentCard} isRevealed={isRevealed} />
+          <ReviewCard
+            card={currentCard}
+            isRevealed={isRevealed}
+            onWordUpdated={updateWord}
+          />
         </div>
       </div>
 
@@ -256,14 +261,11 @@ export default function HomePage() {
             Tap card or press <kbd className="mx-1 rounded bg-secondary px-1.5 py-0.5 text-[10px]">Space</kbd> to flip
           </p>
         ) : (
-          <div className="flex items-center justify-center gap-6 text-xs font-medium uppercase tracking-widest text-muted-foreground/60">
-            <span className="flex items-center gap-1.5">
-              <kbd className="rounded bg-secondary px-1.5 py-0.5 text-[10px]">←</kbd> Forgot
-            </span>
-            <span className="flex items-center gap-1.5">
-              Got it <kbd className="rounded bg-secondary px-1.5 py-0.5 text-[10px]">→</kbd>
-            </span>
-          </div>
+          <RatingButtons
+            progress={currentCard.progress}
+            onGrade={handleBinaryButtonGrade}
+            disabled={Boolean(exitClass)}
+          />
         )}
 
         {/* Stats line */}

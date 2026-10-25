@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -57,7 +57,8 @@ export async function PATCH(request: Request, ctx: RouteParams) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }
 
-    const { data: word, error } = await supabase
+    const serviceClient = createServiceClient();
+    const { data: word, error } = await serviceClient
       .from("vocabulary")
       .update(updates)
       .eq("id", id)
@@ -90,7 +91,8 @@ export async function DELETE(_request: Request, ctx: RouteParams) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { error } = await supabase.from("vocabulary").delete().eq("id", id);
+    const serviceClient = createServiceClient();
+    const { error } = await serviceClient.from("vocabulary").delete().eq("id", id);
 
     if (error) {
       console.error("Vocabulary DELETE error:", error);
