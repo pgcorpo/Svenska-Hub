@@ -85,7 +85,7 @@ Your task:
    - For adjectives: definite_singular = ett-form (e.g., "stort"), indefinite_plural = plural/definite form (e.g., "stora").
 5. Create a **complex, natural B1/B2-level Swedish example sentence** (example_sv) and its English translation (example_en):
    - Do NOT write trivial A1 sentences like "Jag ser en hund."
-   - Write a realistic, multi-clause sentence (12–22 words) that uses subordinating conjunctions (e.g., eftersom, trots att, medan, om, när, så att, fastän), authentic Swedish word order (V2 in main clauses, BIFF rule in subordinate clauses), and rich everyday or cultural context so the learner sees how the word actually behaves in real Swedish.`;
+   - Write a realistic, multi-clause sentence (8-12 words) that uses subordinating conjunctions, authentic Swedish word order, and rich everyday or cultural context so the learner sees how the word actually behaves in real Swedish.`;
 
 export function resolveModelCascade(preferredModel?: string): GeminiModelId[] {
   const envModel = process.env.GEMINI_MODEL?.trim();
