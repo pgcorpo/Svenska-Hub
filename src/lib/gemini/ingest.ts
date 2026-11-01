@@ -52,12 +52,12 @@ const responseSchema: import("@google/generative-ai").ResponseSchema = {
     example_sv: {
       type: SchemaType.STRING,
       description:
-        "A rich, complex B1/B2-level Swedish sentence (using subordinate clauses/bisats, conjunctions like eftersom, trots att, medan, fastän, or natural idiomatic expressions) that clearly illustrates the word's meaning in context.",
+        "One natural Swedish sentence of 8–12 words that uses the word in a multi-clause structure with a subordinating conjunction and authentic word order. Keep it concise and set in everyday or cultural context. Do not write long or nested sentences.",
     },
     example_en: {
       type: SchemaType.STRING,
       description:
-        "The natural English translation of the complex Swedish example sentence.",
+        "A natural English translation of the example sentence (similar length).",
     },
   },
   required: [
