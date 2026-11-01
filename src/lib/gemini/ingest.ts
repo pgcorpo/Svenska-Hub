@@ -21,11 +21,11 @@ const responseSchema: import("@google/generative-ai").ResponseSchema = {
     swedish_word: {
       type: SchemaType.STRING,
       description:
-        "The Swedish word in its base/dictionary form. If the input is a multi-word phrase or expression, return it exactly as written (do not shorten it to a single word).",
+        "The exact Swedish word, multi-word phrase, idiom, or sentence being studied. Always preserve the full user input as swedish_word without trimming, extracting a sub-phrase, or reducing it to a single component (e.g. keep 'Så pass bra tålamod har man väl' entirely intact).",
     },
     english_meaning: {
       type: SchemaType.STRING,
-      description: "The clear, natural English translation of the word or phrase",
+      description: "The clear, natural English translation of the entire word, phrase, or sentence",
     },
     gender: {
       type: SchemaType.STRING,
@@ -70,24 +70,26 @@ const responseSchema: import("@google/generative-ai").ResponseSchema = {
   ],
 };
 
-const systemPrompt = `You are an expert Swedish language teacher and linguist. You receive either a Swedish word (optionally with an English meaning hint) or OCR text from a photographed sticky note.
+const systemPrompt = `You are an expert Swedish language teacher and linguist. You receive a Swedish word, phrase, idiom, sentence, or OCR text.
 
 Your task:
-1. Extract the Swedish word in its base/dictionary form (indefinite singular for nouns, infinitive for verbs, base form for adjectives). If the input is a multi-word phrase or expression (e.g., "ta hand om"), keep it exactly as written; never shorten it to a single word.
-2. Provide the accurate English meaning (if an English hint is provided, preserve/refine that sense of the word).
+1. Determine the Swedish study term:
+   - If the input is a multi-word phrase, idiom, colloquial expression, or full sentence (e.g., "Så pass bra tålamod har man väl", "ta hand om", "det ordnar sig"), you MUST preserve the entire input verbatim as swedish_word. NEVER shorten, trim, extract a sub-phrase, or reduce it to a single component or root word.
+   - Only convert to base/dictionary form (indefinite singular for nouns, infinitive for verbs) if the input is a single standalone word or clearly messy multi-line OCR scan.
+2. Provide the accurate English meaning of the full term/phrase/sentence (if an English hint is provided, preserve/refine that sense).
 3. Identify the grammatical gender:
    - "en" for common gender nouns (en-words)
    - "ett" for neuter gender nouns (ett-words)
-   - "n/a" for verbs, adjectives, adverbs, phrases, expressions, and other non-nouns
+   - "n/a" for verbs, adjectives, adverbs, phrases, expressions, sentences, and other non-nouns
 4. Provide helpful grammar_forms:
-   - For nouns: definite_singular (e.g., "bilen") and indefinite_plural (e.g., "bilar").
-   - For verbs: definite_singular = present tense (e.g., "springer"), indefinite_plural = preteritum & supinum (e.g., "sprang, sprungit").
-   - For adjectives: definite_singular = ett-form (e.g., "stort"), indefinite_plural = plural/definite form (e.g., "stora").
-   - For phrases and expressions: return an empty grammar_forms object (omit both fields).
+   - For single nouns: definite_singular (e.g., "bilen") and indefinite_plural (e.g., "bilar").
+   - For single verbs: definite_singular = present tense (e.g., "springer"), indefinite_plural = preteritum & supinum (e.g., "sprang, sprungit").
+   - For single adjectives: definite_singular = ett-form (e.g., "stort"), indefinite_plural = plural/definite form (e.g., "stora").
+   - For phrases, idioms, expressions, and sentences: return an empty grammar_forms object (omit both fields).
 5. Create a **complex, natural B1/B2-level Swedish example sentence** (example_sv) and its English translation (example_en):
    - Do NOT write trivial A1 sentences like "Jag ser en hund."
-   - Write a realistic, multi-clause sentence (8-12 words) that uses subordinating conjunctions, authentic Swedish word order, and rich everyday or cultural context so the learner sees how the word actually behaves in real Swedish.
-   - For phrases and expressions, use the phrase verbatim in the sentence.`;
+   - Write a realistic, multi-clause sentence (8-12 words) that uses subordinating conjunctions, authentic Swedish word order, and rich everyday or cultural context so the learner sees how the word or phrase actually behaves in real Swedish.
+   - For phrases and expressions, incorporate the phrase naturally in the sentence.`;
 
 /**
  * Drop empty/placeholder grammar fields (e.g. for phrases) so the card hides them.
@@ -149,7 +151,7 @@ export async function extractVocabulary(
   const modelsToTry = resolveModelCascade(options.model);
 
   const promptParts = [
-    `Extract the Swedish vocabulary and generate a complex B1/B2 Swedish example sentence from this input:\n\nSwedish word / OCR text: ${rawText}`,
+    `Process this Swedish study term (word, phrase, idiom, or sentence) and generate a complex B1/B2 Swedish example sentence for it:\n\nInput: ${rawText}`,
   ];
   if (options.englishHint?.trim()) {
     promptParts.push(`Intended English meaning hint: ${options.englishHint.trim()}`);
