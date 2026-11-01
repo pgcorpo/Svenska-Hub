@@ -80,7 +80,13 @@ export function ReviewCard({ card, isRevealed, onWordUpdated }: Props) {
                 </Badge>
               </div>
             )}
-            <h1 className="text-5xl font-bold tracking-tight text-foreground">
+            <h1
+              className={`font-bold tracking-tight text-foreground ${
+                word.swedish_word.length > 16 || word.swedish_word.includes(" ")
+                  ? "text-3xl sm:text-4xl"
+                  : "text-5xl"
+              }`}
+            >
               {word.swedish_word}
             </h1>
           </div>

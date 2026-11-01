@@ -105,9 +105,10 @@ export default function AddWordsPage() {
     for (const line of lines) {
       if (!line.trim()) continue;
       
-      // Try to split by tab, then common separators
+      // Try to split by tab, then common separators (phrases may contain commas)
       let parts = line.split("\t");
       if (parts.length < 2) parts = line.split(" - ");
+      if (parts.length < 2) parts = line.split(";");
       if (parts.length < 2) parts = line.split(",");
 
       if (parts.length >= 1) {

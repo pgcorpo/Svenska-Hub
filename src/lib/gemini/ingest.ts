@@ -5,7 +5,7 @@
 
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { DEFAULT_GEMINI_MODEL, GEMINI_MODELS, type GeminiModelId } from "@/lib/constants";
-import type { GeminiIngestResult } from "@/types";
+import type { GeminiIngestResult, GrammarForms } from "@/types";
 
 const ALLOWED_MODEL_IDS = new Set<string>(GEMINI_MODELS.map((m) => m.id));
 
@@ -20,18 +20,19 @@ const responseSchema: import("@google/generative-ai").ResponseSchema = {
   properties: {
     swedish_word: {
       type: SchemaType.STRING,
-      description: "The Swedish word in its base/dictionary form",
+      description:
+        "The Swedish word in its base/dictionary form. If the input is a multi-word phrase or expression, return it exactly as written (do not shorten it to a single word).",
     },
     english_meaning: {
       type: SchemaType.STRING,
-      description: "The clear, natural English translation of the word",
+      description: "The clear, natural English translation of the word or phrase",
     },
     gender: {
       type: SchemaType.STRING,
       format: "enum",
       enum: ["en", "ett", "n/a"],
       description:
-        "The grammatical gender: 'en' for common, 'ett' for neuter, 'n/a' for non-nouns",
+        "The grammatical gender: 'en' for common, 'ett' for neuter, 'n/a' for non-nouns and for phrases/expressions",
     },
     grammar_forms: {
       type: SchemaType.OBJECT,
@@ -39,20 +40,19 @@ const responseSchema: import("@google/generative-ai").ResponseSchema = {
         definite_singular: {
           type: SchemaType.STRING,
           description:
-            "For nouns: definite singular form (e.g., huset for hus). For verbs: present tense (e.g., springer). For adjectives: neuter/ett-form.",
+            "For nouns: definite singular form (e.g., huset for hus). For verbs: present tense (e.g., springer). For adjectives: neuter/ett-form. Omit for phrases and expressions.",
         },
         indefinite_plural: {
           type: SchemaType.STRING,
           description:
-            "For nouns: indefinite plural form (e.g., hus for hus, bilar for bil). For verbs: past/preteritum + supine (e.g., sprang / sprungit). For adjectives: plural/definite form.",
+            "For nouns: indefinite plural form (e.g., hus for hus, bilar for bil). For verbs: past/preteritum + supine (e.g., sprang / sprungit). For adjectives: plural/definite form. Omit for phrases and expressions.",
         },
       },
-      required: ["definite_singular", "indefinite_plural"],
     },
     example_sv: {
       type: SchemaType.STRING,
       description:
-        "One natural Swedish sentence of 8–12 words that uses the word in a multi-clause structure with a subordinating conjunction and authentic word order. Keep it concise and set in everyday or cultural context. Do not write long or nested sentences.",
+        "One natural Swedish sentence of 8–12 words that uses the word in a multi-clause structure with a subordinating conjunction and authentic word order. Keep it concise and set in everyday or cultural context. Do not write long or nested sentences. For phrases, include the phrase verbatim.",
     },
     example_en: {
       type: SchemaType.STRING,
@@ -73,19 +73,51 @@ const responseSchema: import("@google/generative-ai").ResponseSchema = {
 const systemPrompt = `You are an expert Swedish language teacher and linguist. You receive either a Swedish word (optionally with an English meaning hint) or OCR text from a photographed sticky note.
 
 Your task:
-1. Extract the Swedish word in its base/dictionary form (indefinite singular for nouns, infinitive for verbs, base form for adjectives).
+1. Extract the Swedish word in its base/dictionary form (indefinite singular for nouns, infinitive for verbs, base form for adjectives). If the input is a multi-word phrase or expression (e.g., "ta hand om"), keep it exactly as written; never shorten it to a single word.
 2. Provide the accurate English meaning (if an English hint is provided, preserve/refine that sense of the word).
 3. Identify the grammatical gender:
    - "en" for common gender nouns (en-words)
    - "ett" for neuter gender nouns (ett-words)
-   - "n/a" for verbs, adjectives, adverbs, phrases, and other non-nouns
+   - "n/a" for verbs, adjectives, adverbs, phrases, expressions, and other non-nouns
 4. Provide helpful grammar_forms:
    - For nouns: definite_singular (e.g., "bilen") and indefinite_plural (e.g., "bilar").
    - For verbs: definite_singular = present tense (e.g., "springer"), indefinite_plural = preteritum & supinum (e.g., "sprang, sprungit").
    - For adjectives: definite_singular = ett-form (e.g., "stort"), indefinite_plural = plural/definite form (e.g., "stora").
+   - For phrases and expressions: return an empty grammar_forms object (omit both fields).
 5. Create a **complex, natural B1/B2-level Swedish example sentence** (example_sv) and its English translation (example_en):
    - Do NOT write trivial A1 sentences like "Jag ser en hund."
-   - Write a realistic, multi-clause sentence (8-12 words) that uses subordinating conjunctions, authentic Swedish word order, and rich everyday or cultural context so the learner sees how the word actually behaves in real Swedish.`;
+   - Write a realistic, multi-clause sentence (8-12 words) that uses subordinating conjunctions, authentic Swedish word order, and rich everyday or cultural context so the learner sees how the word actually behaves in real Swedish.
+   - For phrases and expressions, use the phrase verbatim in the sentence.`;
+
+/**
+ * Drop empty/placeholder grammar fields (e.g. for phrases) so the card hides them.
+ */
+function cleanGrammarForms(
+  forms?: GrammarForms | null,
+  swedishWord?: string
+): GrammarForms {
+  const isPlaceholder = (val?: string) => {
+    if (!val) return true;
+    const v = val.trim().toLowerCase();
+    if (!v || v === "n/a" || v === "-" || v === "none") return true;
+    // If it's a multi-word phrase and Gemini just repeated the phrase, drop it
+    if (
+      swedishWord &&
+      swedishWord.trim().includes(" ") &&
+      v === swedishWord.trim().toLowerCase()
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  const definite = forms?.definite_singular?.trim();
+  const plural = forms?.indefinite_plural?.trim();
+  return {
+    ...(!isPlaceholder(definite) ? { definite_singular: definite } : {}),
+    ...(!isPlaceholder(plural) ? { indefinite_plural: plural } : {}),
+  };
+}
 
 export function resolveModelCascade(preferredModel?: string): GeminiModelId[] {
   const envModel = process.env.GEMINI_MODEL?.trim();
@@ -145,7 +177,14 @@ export async function extractVocabulary(
         throw new Error("Gemini returned incomplete data");
       }
 
-      return { ...parsed, model_used: modelId };
+      return {
+        ...parsed,
+        grammar_forms: cleanGrammarForms(
+          parsed.grammar_forms,
+          parsed.swedish_word
+        ),
+        model_used: modelId,
+      };
     } catch (err) {
       console.warn(`Gemini model ${modelId} failed, trying fallback if available:`, err);
       lastError = err;
