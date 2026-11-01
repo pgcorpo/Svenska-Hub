@@ -21,7 +21,7 @@ const responseSchema: import("@google/generative-ai").ResponseSchema = {
     swedish_word: {
       type: SchemaType.STRING,
       description:
-        "The exact Swedish word, multi-word phrase, idiom, or sentence being studied. Always preserve the full user input as swedish_word without trimming, extracting a sub-phrase, or reducing it to a single component (e.g. keep 'Så pass bra tålamod har man väl' entirely intact).",
+        "The Swedish study term. Preserve the full input verbatim without trimming, extracting a sub-phrase, or reducing it to a single component.",
     },
     english_meaning: {
       type: SchemaType.STRING,
@@ -70,26 +70,22 @@ const responseSchema: import("@google/generative-ai").ResponseSchema = {
   ],
 };
 
-const systemPrompt = `You are an expert Swedish language teacher and linguist. You receive a Swedish word, phrase, idiom, sentence, or OCR text.
+const systemPrompt = `You are an expert Swedish language teacher and linguist. You receive a Swedish word, phrase, idiom, or sentence.
 
 Your task:
 1. Determine the Swedish study term:
-   - If the input is a multi-word phrase, idiom, colloquial expression, or full sentence (e.g., "Så pass bra tålamod har man väl", "ta hand om", "det ordnar sig"), you MUST preserve the entire input verbatim as swedish_word. NEVER shorten, trim, extract a sub-phrase, or reduce it to a single component or root word.
-   - Only convert to base/dictionary form (indefinite singular for nouns, infinitive for verbs) if the input is a single standalone word or clearly messy multi-line OCR scan.
+   - If the input is a multi-word phrase, idiom, or sentence, keep the entire input verbatim as swedish_word. Never shorten, trim, extract a sub-phrase, or reduce it to a single component or root word.
+   - Only convert to base/dictionary form (indefinite singular for nouns, infinitive for verbs) if the input is a single standalone word or messy multi-line OCR scan.
 2. Provide the accurate English meaning of the full term/phrase/sentence (if an English hint is provided, preserve/refine that sense).
-3. Identify the grammatical gender:
-   - "en" for common gender nouns (en-words)
-   - "ett" for neuter gender nouns (ett-words)
-   - "n/a" for verbs, adjectives, adverbs, phrases, expressions, sentences, and other non-nouns
+3. Identify grammatical gender: "en", "ett", or "n/a" (for non-nouns, phrases, and sentences).
 4. Provide helpful grammar_forms:
-   - For single nouns: definite_singular (e.g., "bilen") and indefinite_plural (e.g., "bilar").
-   - For single verbs: definite_singular = present tense (e.g., "springer"), indefinite_plural = preteritum & supinum (e.g., "sprang, sprungit").
-   - For single adjectives: definite_singular = ett-form (e.g., "stort"), indefinite_plural = plural/definite form (e.g., "stora").
-   - For phrases, idioms, expressions, and sentences: return an empty grammar_forms object (omit both fields).
-5. Create a **complex, natural B1/B2-level Swedish example sentence** (example_sv) and its English translation (example_en):
-   - Do NOT write trivial A1 sentences like "Jag ser en hund."
-   - Write a realistic, multi-clause sentence (8-12 words) that uses subordinating conjunctions, authentic Swedish word order, and rich everyday or cultural context so the learner sees how the word or phrase actually behaves in real Swedish.
-   - For phrases and expressions, incorporate the phrase naturally in the sentence.`;
+   - For single nouns: definite_singular and indefinite_plural.
+   - For single verbs: definite_singular (present) and indefinite_plural (preterite & supine).
+   - For single adjectives: definite_singular (ett-form) and indefinite_plural (plural/definite form).
+   - For phrases, idioms, and sentences: return an empty grammar_forms object.
+5. Create a **complex, natural B1/B2-level Swedish example sentence** (example_sv) and English translation (example_en):
+   - Realistic multi-clause sentence (8-12 words) using subordinating conjunctions and authentic Swedish word order.
+   - Incorporate the term/phrase naturally.`;
 
 /**
  * Drop empty/placeholder grammar fields (e.g. for phrases) so the card hides them.
